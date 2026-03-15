@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>screener-jci</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Syne:wght@500;700;800&display=swap" rel="stylesheet"/>
+<style>
+:root {
+  --bg:#0d0f12; --surface:#13161b; --surface2:#1a1e25; --border:#252a33;
+  --accent:#00e5a0; --accent2:#0ea5e9; --red:#f43f5e; --green:#00e5a0;
+  --text:#e8edf5; --muted:#6b7280;
+  --sidebar-w:220px; --sidebar-collapsed:64px;
+  --font-head:'Syne',sans-serif; --font-mono:'IBM Plex Mono',monospace;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;overflow:hidden;}
+body{background:var(--bg);color:var(--text);font-family:var(--font-mono);font-size:13px;display:flex;}
+
+/* ── SIDEBAR ── */
+#sidebar{
+  width:var(--sidebar-w);min-width:var(--sidebar-w);height:100vh;
+  background:var(--surface);border-right:1px solid var(--border);
+  display:flex;flex-direction:column;transition:width .25s ease,min-width .25s ease;
+  overflow:hidden;z-index:100;flex-shrink:0;
+}
+#sidebar.collapsed{width:var(--sidebar-collapsed);min-width:var(--sidebar-collapsed);}
+
+.sb-top{
+  padding:20px 16px 12px;display:flex;align-items:center;
+  gap:12px;border-bottom:1px solid var(--border);flex-shrink:0;
+}
+.sb-logo{
+  width:36px;height:36px;border-radius:10px;
+  background:linear-gradient(135deg,#0ea5e9,#00e5a0);
+  display:flex;align-items:center;justify-content:center;
+  font-family:var(--font-head);font-weight:800;font-size:15px;color:#000;
+  flex-shrink:0;letter-spacing:-1px;cursor:pointer;
+  transition:width .25s,height .25s,border-radius .25s,font-size .25s;
+}
+#sidebar.collapsed .sb-logo{width:36px;height:36px;}
+.sb-wordmark{font-family:var(--font-head);font-weight:700;font-size:15px;white-space:nowrap;overflow:hidden;
+  opacity:1;transition:opacity .15s .1s;letter-spacing:-.3px;}
+.sb-wordmark span{color:var(--accent);}
+#sidebar.collapsed .sb-wordmark{opacity:0;width:0;pointer-events:none;}
+
+#toggle-btn{
+  margin-left:auto;background:none;border:none;cursor:pointer;
+  color:var(--muted);padding:4px;border-radius:6px;display:flex;flex-shrink:0;
+  transition:color .15s;
+}
+#toggle-btn:hover{color:var(--text);}
+#sidebar.collapsed #toggle-btn{margin-left:0;}
+
+.sb-nav{flex:1;overflow-y:auto;overflow-x:hidden;padding:12px 0;}
+.sb-section{margin-bottom:4px;}
+.sb-section-label{
+  font-size:9px;text-transform:uppercase;letter-spacing:.12em;
+  color:var(--muted);padding:8px 18px 4px;white-space:nowrap;
+  overflow:hidden;opacity:1;transition:opacity .15s .1s;
+}
+#sidebar.collapsed .sb-section-label{opacity:0;}
+.sb-item{
+  display:flex;align-items:center;gap:10px;padding:9px 16px;cursor:pointer;
+  border-radius:0;transition:background .12s;white-space:nowrap;position:relative;
+}
+.sb-item:hover{background:var(--surface2);}
+.sb-item.active{background:var(--surface2);}
+.sb-item.active::before{
+  content:'';position:absolute;left:0;top:4px;bottom:4px;
+  width:3px;background:var(--accent);border-radius:0 2px 2px 0;
+}
+.sb-icon{
+  width:18px;height:18px;flex-shrink:0;display:flex;
+  align-items:center;justify-content:center;color:var(--muted);
+}
+.sb-item.active .sb-icon,.sb-item:hover .sb-icon{color:var(--text);}
+.sb-label{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;
+  opacity:1;transition:opacity .15s .1s;}
+.sb-item.active .sb-label,.sb-item:hover .sb-label{color:var(--text);}
+#sidebar.collapsed .sb-label{opacity:0;width:0;}
+.sb-badge{
+  margin-left:auto;font-size:9px;padding:2px 6px;border-radius:10px;
+  background:rgba(0,229,160,.12);color:var(--accent);flex-shrink:0;
+  opacity:1;transition:opacity .15s .1s;
+}
+#sidebar.collapsed .sb-badge{opacity:0;}
+
+/* tooltip on collapsed */
+#sidebar.collapsed .sb-item{justify-content:center;}
+.sb-tooltip{
+  display:none;position:absolute;left:calc(var(--sidebar-collapsed) + 8px);
+  background:var(--surface2);border:1px solid var(--border);
+  padding:4px 10px;border-radius:6px;font-size:12px;white-space:nowrap;
+  z-index:200;pointer-events:none;color:var(--text);
+}
+#sidebar.collapsed .sb-item:hover .sb-tooltip{display:block;}
+
+.sb-divider{height:1px;background:var(--border);margin:8px 12px;}
+
+/* ── MAIN ── */
+#main{flex:1;height:100vh;display:flex;flex-direction:column;overflow:hidden;min-width:0;}
+
+/* ── TOPBAR ── */
+#topbar{
+  padding:0 20px;height:54px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:12px;flex-shrink:0;background:var(--surface);
+}
+#topbar .page-title{font-family:var(--font-head);font-size:16px;font-weight:600;margin-right:8px;}
+.search-wrap{position:relative;flex:1;max-width:280px;}
+.search-wrap input{
+  width:100%;background:var(--bg);border:1px solid var(--border);
+  color:var(--text);font-family:var(--font-mono);font-size:12px;
+  padding:6px 10px 6px 30px;border-radius:6px;outline:none;
+  transition:border-color .15s;
+}
+.search-wrap input:focus{border-color:var(--accent);}
+.search-wrap input::placeholder{color:var(--muted);}
+.search-icon{position:absolute;left:9px;top:50%;transform:translateY(-50%);color:var(--muted);pointer-events:none;}
+select{background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:var(--font-mono);font-size:12px;padding:6px 10px;border-radius:6px;outline:none;transition:border-color .15s;}
+select:focus{border-color:var(--accent);}
+select option{background:var(--surface2);}
+.data-source-badge{
+  margin-left:auto;display:flex;align-items:center;gap:6px;
+  font-size:11px;color:var(--muted);
+}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--accent);animation:pulse 2s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.dot.loading{background:var(--accent2);animation:pulse .8s infinite;}
+.dot.error{background:var(--red);animation:none;}
+
+/* ── SUMMARY STRIP ── */
+#summary{
+  display:flex;gap:1px;background:var(--border);flex-shrink:0;
+  border-bottom:1px solid var(--border);
+}
+.stat{background:var(--surface);padding:12px 20px;flex:1;min-width:0;}
+.stat-label{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px;}
+.stat-value{font-family:var(--font-head);font-size:22px;font-weight:700;line-height:1;white-space:nowrap;}
+.stat-value.up{color:var(--green);}
+.stat-value.dn{color:var(--red);}
+.stat-value.neutral{color:var(--text);}
+.stat-value.blue{color:var(--accent2);}
+
+/* ── TABLE ── */
+#table-area{flex:1;overflow:auto;}
+table{width:100%;border-collapse:collapse;min-width:700px;}
+thead{background:var(--surface);position:sticky;top:0;z-index:10;}
+th{
+  padding:9px 14px;text-align:left;font-size:10px;font-weight:500;
+  text-transform:uppercase;letter-spacing:.1em;color:var(--muted);
+  border-bottom:1px solid var(--border);cursor:pointer;white-space:nowrap;user-select:none;
+}
+th:hover{color:var(--text);}
+th.active{color:var(--accent);}
+th.num,td.num{text-align:right;}
+td{padding:10px 14px;border-bottom:1px solid var(--border);transition:background .1s;}
+tr:hover td{background:var(--surface);}
+.code{font-weight:500;color:var(--accent2);cursor:pointer;}
+.code:hover{text-decoration:underline;}
+.name-cell{color:var(--text);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.sector-tag{font-size:10px;padding:2px 7px;border-radius:4px;background:var(--surface2);color:var(--muted);border:1px solid var(--border);}
+.price{font-weight:500;}
+
+.badge{font-size:11px;padding:3px 8px;border-radius:4px;font-weight:500;display:inline-block;min-width:68px;text-align:center;}
+.badge-up{background:rgba(0,229,160,.1);color:var(--green);border:1px solid rgba(0,229,160,.2);}
+.badge-dn{background:rgba(244,63,94,.1);color:var(--red);border:1px solid rgba(244,63,94,.2);}
+.badge-nt{background:var(--surface2);color:var(--muted);border:1px solid var(--border);}
+
+.sparkline{display:inline-block;vertical-align:middle;}
+
+.trend-pips{display:flex;gap:3px;justify-content:flex-end;}
+.pip{width:7px;height:7px;border-radius:2px;}
+.pip.up{background:var(--green);}
+.pip.dn{background:var(--red);}
+
+.loading-row td{text-align:center;padding:40px;color:var(--muted);}
+.empty-row td{text-align:center;padding:40px;color:var(--muted);}
+
+/* ── FOOTER ── */
+#footer{padding:8px 20px;border-top:1px solid var(--border);font-size:10px;color:var(--muted);display:flex;justify-content:space-between;flex-shrink:0;gap:8px;}
+#footer a{color:var(--accent2);text-decoration:none;}
+
+/* ── DETAIL PANEL (slide-in from right) ── */
+#detail-panel{
+  position:fixed;top:0;right:0;width:400px;height:100vh;
+  background:var(--surface);border-left:1px solid var(--border);
+  transform:translateX(100%);transition:transform .25s ease;
+  z-index:300;display:flex;flex-direction:column;overflow:hidden;
+}
+#detail-panel.open{transform:translateX(0);}
+#detail-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:299;}
+#detail-overlay.open{display:block;}
+
+.dp-header{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;}
+.dp-close{background:none;border:none;cursor:pointer;color:var(--muted);padding:4px;display:flex;border-radius:6px;}
+.dp-close:hover{color:var(--text);}
+.dp-title{font-family:var(--font-head);font-size:18px;font-weight:700;}
+.dp-sub{font-size:11px;color:var(--muted);margin-top:2px;}
+.dp-body{flex:1;overflow-y:auto;padding:16px 20px;}
+.dp-stats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px;}
+.dp-stat{background:var(--surface2);border-radius:8px;padding:12px;}
+.dp-stat-label{font-size:10px;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.08em;}
+.dp-stat-value{font-size:18px;font-weight:500;}
+.dp-chart-wrap{background:var(--surface2);border-radius:8px;padding:12px;margin-bottom:16px;}
+.dp-chart-label{font-size:10px;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.08em;}
+.dp-link{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--accent2);text-decoration:none;padding:7px 14px;border:1px solid rgba(14,165,233,.3);border-radius:6px;}
+.dp-link:hover{background:rgba(14,165,233,.08);}
+
+@media(max-width:600px){
+  #sidebar{position:fixed;z-index:200;}
+  #detail-panel{width:100%;}
+}
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<aside id="sidebar">
+  <div class="sb-top">
+    <div class="sb-logo" onclick="toggleSidebar()" title="screener-jci">JCI</div>
+    <div class="sb-wordmark">screener<span>-jci</span></div>
+    <button id="toggle-btn" onclick="toggleSidebar()" aria-label="Toggle sidebar">
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 4L7 8l4 4"/></svg>
+    </button>
+  </div>
+
+  <nav class="sb-nav">
+    <div class="sb-section">
+      <div class="sb-section-label">Menu</div>
+      <div class="sb-item active" onclick="setView('screener')">
+        <span class="sb-icon">
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="4" height="4" rx="1"/><rect x="9" y="3" width="4" height="4" rx="1"/><rect x="3" y="9" width="4" height="4" rx="1"/><rect x="9" y="9" width="4" height="4" rx="1"/></svg>
+        </span>
+        <span class="sb-label">Screener</span>
+        <span class="sb-badge" id="count-badge">20</span>
+        <span class="sb-tooltip">Screener</span>
+      </div>
+      <div class="sb-item" onclick="setView('watchlist')">
+        <span class="sb-icon">
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15 8.5 22 9.5 17 14.5 18.18 21.5 12 18.35 5.82 21.5 7 14.5 2 9.5 9 8.5 12 2" transform="scale(0.7) translate(1.7,1.5)"/></svg>
+        </span>
+        <span class="sb-label">Watchlist</span>
+        <span class="sb-badge" id="wl-badge" style="display:none">0</span>
+        <span class="sb-tooltip">Watchlist</span>
+      </div>
+    </div>
+
+    <div class="sb-divider"></div>
+
+    <div class="sb-section">
+      <div class="sb-section-label">Sektor</div>
+      <div class="sb-item" onclick="filterSector('')" id="sec-all">
+        <span class="sb-icon"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="8" cy="8" r="6"/><path d="M8 2v12M2 8h12"/></svg></span>
+        <span class="sb-label">Semua</span>
+        <span class="sb-tooltip">Semua sektor</span>
+      </div>
+    </div>
+  </nav>
+
+  <div style="padding:12px 16px;border-top:1px solid var(--border);flex-shrink:0;">
+    <div class="sb-item" style="padding:6px 0;" onclick="window.open('https://github.com/miyazakikazuto/screener-jci','_blank')">
+      <span class="sb-icon"><svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg></span>
+      <span class="sb-label" style="font-size:11px;">GitHub</span>
+      <span class="sb-tooltip">GitHub</span>
+    </div>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<main id="main">
+  <!-- TOPBAR -->
+  <div id="topbar">
+    <span class="page-title" id="page-title">Screener</span>
+    <div class="search-wrap">
+      <svg class="search-icon" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="6" cy="6" r="4"/><path d="M10 10l3 3"/></svg>
+      <input type="text" id="searchInput" placeholder="Cari kode / nama..."/>
+    </div>
+    <select id="perfFilter">
+      <option value="">Semua performa</option>
+      <option value="up">Naik semua periode</option>
+      <option value="dn">Turun semua periode</option>
+      <option value="mixed">Campuran</option>
+    </select>
+    <div class="data-source-badge">
+      <span class="dot" id="status-dot"></span>
+      <span id="status-text">Memuat data...</span>
+    </div>
+  </div>
+
+  <!-- SUMMARY -->
+  <div id="summary">
+    <div class="stat"><div class="stat-label">Total saham</div><div class="stat-value neutral" id="s-total">—</div></div>
+    <div class="stat"><div class="stat-label">Naik 6 bln</div><div class="stat-value up" id="s-up">—</div></div>
+    <div class="stat"><div class="stat-label">Turun 6 bln</div><div class="stat-value dn" id="s-dn">—</div></div>
+    <div class="stat"><div class="stat-label">Rata-rata 6 bln</div><div class="stat-value up" id="s-avg">—</div></div>
+    <div class="stat"><div class="stat-label">Top performer</div><div class="stat-value blue" id="s-top">—</div></div>
+  </div>
+
+  <!-- TABLE -->
+  <div id="table-area">
+    <table>
+      <thead>
+        <tr>
+          <th style="width:20px"></th>
+          <th onclick="sortBy('code')" id="th-code">Kode</th>
+          <th onclick="sortBy('name')" id="th-name">Nama</th>
+          <th>Sektor</th>
+          <th class="num" onclick="sortBy('price')" id="th-price">Harga</th>
+          <th class="num" onclick="sortBy('w4')" id="th-w4">4 Mgg ↕</th>
+          <th class="num" onclick="sortBy('w13')" id="th-w13">13 Mgg ↕</th>
+          <th class="num" onclick="sortBy('w26')" id="th-w26">26 Mgg ↕</th>
+          <th class="num">Chart 6 Bln</th>
+          <th class="num" onclick="sortBy('trend')" id="th-trend">Tren</th>
+        </tr>
+      </thead>
+      <tbody id="tableBody">
+        <tr class="loading-row"><td colspan="10">Memuat data dari Yahoo Finance...</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- FOOTER -->
+  <div id="footer">
+    <span>screener-jci &copy; 2026 — Bukan rekomendasi investasi. Data dari Yahoo Finance (delayed).</span>
+    <a href="https://github.com/miyazakikazuto/screener-jci" target="_blank">miyazakikazuto/screener-jci</a>
+  </div>
+</main>
+
+<!-- DETAIL PANEL -->
+<div id="detail-overlay" onclick="closeDetail()"></div>
+<div id="detail-panel">
+  <div class="dp-header">
+    <button class="dp-close" onclick="closeDetail()">
+      <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+    </button>
+    <div>
+      <div class="dp-title" id="dp-code">—</div>
+      <div class="dp-sub" id="dp-name">—</div>
+    </div>
+    <a id="dp-tv-link" href="#" target="_blank" class="dp-link" style="margin-left:auto;font-size:11px;">TradingView ↗</a>
+  </div>
+  <div class="dp-body">
+    <div class="dp-stats" id="dp-stats"></div>
+    <div class="dp-chart-wrap">
+      <div class="dp-chart-label">Pergerakan harga 6 bulan</div>
+      <canvas id="dp-chart" height="130"></canvas>
+    </div>
+    <div id="dp-extra" style="font-size:12px;color:var(--muted);line-height:1.7;"></div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+// ── IDX stocks with Yahoo Finance tickers ──
+const STOCKS = [
+  {code:'BBCA',name:'Bank Central Asia',sector:'Perbankan',ticker:'BBCA.JK'},
+  {code:'BBRI',name:'Bank Rakyat Indonesia',sector:'Perbankan',ticker:'BBRI.JK'},
+  {code:'BMRI',name:'Bank Mandiri',sector:'Perbankan',ticker:'BMRI.JK'},
+  {code:'TLKM',name:'Telkom Indonesia',sector:'Telekomunikasi',ticker:'TLKM.JK'},
+  {code:'ASII',name:'Astra International',sector:'Otomotif',ticker:'ASII.JK'},
+  {code:'GOTO',name:'GoTo Gojek Tokopedia',sector:'Teknologi',ticker:'GOTO.JK'},
+  {code:'UNVR',name:'Unilever Indonesia',sector:'Konsumer',ticker:'UNVR.JK'},
+  {code:'INDF',name:'Indofood Sukses Makmur',sector:'Konsumer',ticker:'INDF.JK'},
+  {code:'UNTR',name:'United Tractors',sector:'Tambang',ticker:'UNTR.JK'},
+  {code:'ICBP',name:'Indofood CBP Sukses',sector:'Konsumer',ticker:'ICBP.JK'},
+  {code:'PTBA',name:'Bukit Asam',sector:'Tambang',ticker:'PTBA.JK'},
+  {code:'ADRO',name:'Adaro Energy',sector:'Tambang',ticker:'ADRO.JK'},
+  {code:'KLBF',name:'Kalbe Farma',sector:'Kesehatan',ticker:'KLBF.JK'},
+  {code:'SMGR',name:'Semen Indonesia',sector:'Industri',ticker:'SMGR.JK'},
+  {code:'EXCL',name:'XL Axiata',sector:'Telekomunikasi',ticker:'EXCL.JK'},
+  {code:'JPFA',name:'Japfa Comfeed',sector:'Konsumer',ticker:'JPFA.JK'},
+  {code:'CPIN',name:'Charoen Pokphand',sector:'Konsumer',ticker:'CPIN.JK'},
+  {code:'TOWR',name:'Sarana Menara Nusantara',sector:'Infrastruktur',ticker:'TOWR.JK'},
+  {code:'KLBF',name:'Kalbe Farma',sector:'Kesehatan',ticker:'KLBF.JK'},
+  {code:'SIDO',name:'Sido Muncul',sector:'Kesehatan',ticker:'SIDO.JK'},
+];
+// dedupe
+const seen=new Set(); const STOCK_LIST = STOCKS.filter(s=>{if(seen.has(s.code))return false;seen.add(s.code);return true;});
+
+// ── State ──
+let stockData = []; // enriched with price data
+let watchlist = JSON.parse(localStorage.getItem('jci-wl')||'[]');
+let sortKey='w26', sortDir=-1;
+let currentView='screener', activeSector='';
+let dpChart=null;
+
+// ── Sidebar toggle ──
+function toggleSidebar(){
+  const sb=document.getElementById('sidebar');
+  sb.classList.toggle('collapsed');
+  const btn=document.getElementById('toggle-btn');
+  const isCol=sb.classList.contains('collapsed');
+  btn.innerHTML=isCol
+    ?'<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 4l4 4-4 4"/></svg>'
+    :'<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 4L7 8l4 4"/></svg>';
+}
+
+// ── Sector nav build ──
+function buildSectorNav(){
+  const sectors=[...new Set(STOCK_LIST.map(s=>s.sector))].sort();
+  const nav=document.querySelector('.sb-nav');
+  const secSection=nav.querySelector('#sec-all').closest('.sb-section');
+  sectors.forEach(sec=>{
+    const d=document.createElement('div');
+    d.className='sb-item';
+    d.id='sec-'+sec;
+    d.innerHTML=`<span class="sb-icon"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="4" height="8" rx="1"/><rect x="9" y="4" width="4" height="11" rx="1"/><rect x="16" y="2" width="4" height="13" rx="1"/></svg></span><span class="sb-label">${sec}</span><span class="sb-tooltip">${sec}</span>`;
+    d.onclick=()=>filterSector(sec);
+    secSection.appendChild(d);
+  });
+}
+
+function filterSector(sec){
+  activeSector=sec;
+  document.querySelectorAll('.sb-item').forEach(el=>el.classList.remove('active'));
+  const target=sec?document.getElementById('sec-'+sec):document.getElementById('sec-all');
+  if(target)target.classList.add('active');
+  render();
+}
+
+function setView(v){
+  currentView=v;
+  document.querySelectorAll('.sb-item').forEach(el=>el.classList.remove('active'));
+  document.querySelector(`.sb-item[onclick="setView('${v}')"]`)?.classList.add('active');
+  document.getElementById('page-title').textContent=v==='watchlist'?'Watchlist':'Screener';
+  render();
+}
+
+// ── Yahoo Finance fetch via CORS proxy ──
+async function fetchHistory(ticker){
+  const end=Math.floor(Date.now()/1000);
+  const start=end-(180*24*3600); // 6 months
+  const url=`https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1wk&period1=${start}&period2=${end}&events=history`;
+  // Use allorigins proxy for CORS
+  const proxy=`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
+  const r=await fetch(proxy,{signal:AbortSignal.timeout(8000)});
+  if(!r.ok)throw new Error('fetch failed');
+  const j=await r.json();
+  const data=JSON.parse(j.contents);
+  const result=data?.chart?.result?.[0];
+  if(!result)throw new Error('no data');
+  const closes=result.indicators.quote[0].close;
+  const timestamps=result.timestamp;
+  const prices=closes.map((c,i)=>({t:timestamps[i]*1000,p:c})).filter(x=>x.p!=null);
+  if(!prices.length)throw new Error('empty');
+  const current=prices[prices.length-1].p;
+  const ago26=prices[Math.max(0,prices.length-27)].p;
+  const ago13=prices[Math.max(0,prices.length-14)].p;
+  const ago4=prices[Math.max(0,prices.length-5)].p;
+  return{
+    price:current,
+    w26:((current-ago26)/ago26)*100,
+    w13:((current-ago13)/ago13)*100,
+    w4:((current-ago4)/ago4)*100,
+    history:prices
+  };
+}
+
+// ── Load all stocks ──
+async function loadData(){
+  setStatus('loading','Memuat data Yahoo Finance...');
+  buildSectorNav();
+  // Load with slight stagger to avoid rate limits
+  const results=await Promise.allSettled(
+    STOCK_LIST.map((s,i)=>new Promise(res=>setTimeout(()=>fetchHistory(s.ticker).then(res).catch(()=>res(null)),i*120)))
+  );
+  stockData=STOCK_LIST.map((s,i)=>{
+    const r=results[i];
+    const d=(r.status==='fulfilled'&&r.value)?r.value:null;
+    return{
+      ...s,
+      price:d?d.price:null,
+      w4:d?d.w4:null,
+      w13:d?d.w13:null,
+      w26:d?d.w26:null,
+      history:d?d.history:[]
+    };
+  });
+  const loaded=stockData.filter(s=>s.price).length;
+  if(loaded===0){
+    setStatus('error','Gagal memuat data');
+  } else if(loaded<STOCK_LIST.length){
+    setStatus('ok',`Yahoo Finance (${loaded}/${STOCK_LIST.length} saham)`);
+  } else {
+    setStatus('ok','Yahoo Finance · Live');
+  }
+  render();
+}
+
+function setStatus(type,text){
+  const dot=document.getElementById('status-dot');
+  const txt=document.getElementById('status-text');
+  dot.className='dot '+(type==='loading'?'loading':type==='error'?'error':'');
+  txt.textContent=text;
+}
+
+// ── Render ──
+function getVisible(){
+  const q=document.getElementById('searchInput').value.toLowerCase();
+  const perf=document.getElementById('perfFilter').value;
+  let data=currentView==='watchlist'
+    ?stockData.filter(s=>watchlist.includes(s.code))
+    :stockData;
+  if(activeSector&&currentView!=='watchlist')data=data.filter(s=>s.sector===activeSector);
+  return data.filter(s=>{
+    const mq=s.code.toLowerCase().includes(q)||s.name.toLowerCase().includes(q);
+    if(!mq)return false;
+    if(!s.w26&&s.w26!==0)return true;
+    if(perf==='up')return s.w4>0&&s.w13>0&&s.w26>0;
+    if(perf==='dn')return s.w4<0&&s.w13<0&&s.w26<0;
+    if(perf==='mixed')return !((s.w4>0&&s.w13>0&&s.w26>0)||(s.w4<0&&s.w13<0&&s.w26<0));
+    return true;
+  });
+}
+
+function trendScore(s){return (s.w4>0?1:0)+(s.w13>0?1:0)+(s.w26>0?1:0);}
+
+function badge(v){
+  if(v===null||v===undefined)return`<span class="badge badge-nt">—</span>`;
+  if(v>0)return`<span class="badge badge-up">+${v.toFixed(1)}%</span>`;
+  if(v<0)return`<span class="badge badge-dn">${v.toFixed(1)}%</span>`;
+  return`<span class="badge badge-nt">0.0%</span>`;
+}
+
+function sparklineSVG(history,w26){
+  if(!history||history.length<2)return'<span style="color:var(--muted);font-size:10px;">—</span>';
+  const prices=history.map(h=>h.p);
+  const min=Math.min(...prices),max=Math.max(...prices),range=max-min||1;
+  const W=64,H=22;
+  const pts=prices.map((p,i)=>{
+    const x=(i/(prices.length-1))*W;
+    const y=H-((p-min)/range)*(H-2)-1;
+    return`${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(' ');
+  const color=w26>0?'#00e5a0':'#f43f5e';
+  return`<svg class="sparkline" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><polyline points="${pts}" fill="none" stroke="${color}" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/></svg>`;
+}
+
+function pips(s){
+  if(s.w4===null)return'<span style="color:var(--muted);font-size:10px;">—</span>';
+  return`<div class="trend-pips">${[s.w4,s.w13,s.w26].map(v=>`<div class="pip ${v>0?'up':'dn'}"></div>`).join('')}</div>`;
+}
+
+function wlStar(code){
+  const in_=watchlist.includes(code);
+  return`<span onclick="toggleWl('${code}',event)" style="cursor:pointer;color:${in_?'#f59e0b':'var(--muted)'};font-size:13px;" title="${in_?'Hapus dari watchlist':'Tambah ke watchlist'}">${in_?'★':'☆'}</span>`;
+}
+
+function toggleWl(code,e){
+  e.stopPropagation();
+  if(watchlist.includes(code))watchlist=watchlist.filter(c=>c!==code);
+  else watchlist.push(code);
+  localStorage.setItem('jci-wl',JSON.stringify(watchlist));
+  updateWlBadge();
+  render();
+}
+
+function updateWlBadge(){
+  const b=document.getElementById('wl-badge');
+  b.textContent=watchlist.length;
+  b.style.display=watchlist.length?'inline-block':'none';
+}
+
+function render(){
+  let data=getVisible();
+  data.sort((a,b)=>{
+    const keyFn=s=>sortKey==='trend'?trendScore(s):s[sortKey];
+    const av=keyFn(a),bv=keyFn(b);
+    if(av===null&&bv===null)return 0;
+    if(av===null)return 1; if(bv===null)return -1;
+    if(typeof av==='string')return sortDir*av.localeCompare(bv);
+    return sortDir*(av-bv);
+  });
+
+  // Summary
+  const hasData=data.filter(s=>s.w26!==null);
+  const up=hasData.filter(s=>s.w26>0).length;
+  const dn=hasData.filter(s=>s.w26<0).length;
+  const avg=hasData.length?(hasData.reduce((a,s)=>a+s.w26,0)/hasData.length):null;
+  const best=hasData.length?[...hasData].sort((a,b)=>b.w26-a.w26)[0]:null;
+  document.getElementById('s-total').textContent=data.length;
+  document.getElementById('s-up').textContent=up;
+  document.getElementById('s-dn').textContent=dn;
+  const avgEl=document.getElementById('s-avg');
+  avgEl.textContent=avg!==null?avg.toFixed(1)+'%':'—';
+  avgEl.className='stat-value '+(avg>=0?'up':'dn');
+  document.getElementById('s-top').textContent=best?`${best.code} ${best.w26>=0?'+':''}${best.w26.toFixed(1)}%`:'—';
+  document.getElementById('count-badge').textContent=data.length;
+
+  // Table
+  const tbody=document.getElementById('tableBody');
+  if(!data.length){
+    tbody.innerHTML=`<tr class="empty-row"><td colspan="10">Tidak ada saham yang cocok.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML=data.map(s=>`
+    <tr>
+      <td>${wlStar(s.code)}</td>
+      <td><span class="code" onclick="openDetail('${s.code}')">${s.code}</span></td>
+      <td class="name-cell">${s.name}</td>
+      <td><span class="sector-tag">${s.sector}</span></td>
+      <td class="num price">${s.price?'Rp '+Math.round(s.price).toLocaleString('id-ID'):'—'}</td>
+      <td class="num">${badge(s.w4)}</td>
+      <td class="num">${badge(s.w13)}</td>
+      <td class="num">${badge(s.w26)}</td>
+      <td class="num">${sparklineSVG(s.history,s.w26)}</td>
+      <td class="num">${pips(s)}</td>
+    </tr>
+  `).join('');
+
+  document.querySelectorAll('th').forEach(t=>t.classList.remove('active'));
+  const ath=document.getElementById('th-'+sortKey);
+  if(ath)ath.classList.add('active');
+
+  updateWlBadge();
+}
+
+function sortBy(k){
+  sortDir=sortKey===k?sortDir*-1:-1;
+  sortKey=k;
+  render();
+}
+
+// ── Detail panel ──
+function openDetail(code){
+  const s=stockData.find(x=>x.code===code);
+  if(!s)return;
+  document.getElementById('dp-code').textContent=s.code;
+  document.getElementById('dp-name').textContent=s.name+' · '+s.sector;
+  document.getElementById('dp-tv-link').href=`https://www.tradingview.com/chart/?symbol=IDX:${s.code}`;
+
+  document.getElementById('dp-stats').innerHTML=[
+    {label:'Harga saat ini',value:s.price?'Rp '+Math.round(s.price).toLocaleString('id-ID'):'—',cls:''},
+    {label:'Performa 4 minggu',value:s.w4!==null?(s.w4>=0?'+':'')+s.w4.toFixed(2)+'%':'—',cls:s.w4>0?'up':s.w4<0?'dn':''},
+    {label:'Performa 13 minggu',value:s.w13!==null?(s.w13>=0?'+':'')+s.w13.toFixed(2)+'%':'—',cls:s.w13>0?'up':s.w13<0?'dn':''},
+    {label:'Performa 26 minggu',value:s.w26!==null?(s.w26>=0?'+':'')+s.w26.toFixed(2)+'%':'—',cls:s.w26>0?'up':s.w26<0?'dn':''},
+  ].map(x=>`<div class="dp-stat"><div class="dp-stat-label">${x.label}</div><div class="dp-stat-value" style="color:${x.cls==='up'?'var(--green)':x.cls==='dn'?'var(--red)':'var(--text)'}">${x.value}</div></div>`).join('');
+
+  // Chart
+  if(dpChart){dpChart.destroy();dpChart=null;}
+  const canvas=document.getElementById('dp-chart');
+  if(s.history&&s.history.length>1){
+    const labels=s.history.map(h=>new Date(h.t).toLocaleDateString('id-ID',{month:'short',day:'numeric'}));
+    const prices=s.history.map(h=>h.p);
+    const color=s.w26>=0?'#00e5a0':'#f43f5e';
+    dpChart=new Chart(canvas,{
+      type:'line',
+      data:{labels,datasets:[{data:prices,borderColor:color,borderWidth:1.5,pointRadius:0,fill:true,backgroundColor:color.replace(')',',0.08)').replace('rgb','rgba')}]},
+      options:{
+        responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:false},tooltip:{mode:'index',intersect:false,callbacks:{label:ctx=>'Rp '+Math.round(ctx.raw).toLocaleString('id-ID')}}},
+        scales:{
+          x:{ticks:{color:'#6b7280',font:{size:10},maxTicksLimit:6},grid:{color:'rgba(255,255,255,0.04)'},border:{color:'#252a33'}},
+          y:{ticks:{color:'#6b7280',font:{size:10},callback:v=>'Rp '+Math.round(v).toLocaleString('id-ID')},grid:{color:'rgba(255,255,255,0.04)'},border:{color:'#252a33'}}
+        }
+      }
+    });
+  } else {
+    canvas.parentElement.innerHTML='<div class="dp-chart-label">Pergerakan harga 6 bulan</div><p style="color:var(--muted);font-size:12px;padding-top:8px;">Data tidak tersedia</p>';
+  }
+
+  document.getElementById('dp-extra').innerHTML=`<p>Ticker Yahoo Finance: <strong style="color:var(--accent2)">${s.ticker}</strong></p>`;
+  document.getElementById('detail-panel').classList.add('open');
+  document.getElementById('detail-overlay').classList.add('open');
+}
+
+function closeDetail(){
+  document.getElementById('detail-panel').classList.remove('open');
+  document.getElementById('detail-overlay').classList.remove('open');
+}
+
+// ── Event listeners ──
+document.getElementById('searchInput').addEventListener('input',render);
+document.getElementById('perfFilter').addEventListener('change',render);
+
+// ── Boot ──
+buildSectorNav();
+render();
+loadData();
+</script>
+</body>
+</html>
